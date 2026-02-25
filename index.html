@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V2Ray Pro Tool</title>
+    <title>V2Ray to Clash Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <style>
@@ -16,7 +16,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             background-color: var(--tg-bg);
             color: var(--tg-text);
             margin: 0;
@@ -26,12 +26,12 @@
             min-height: 100vh;
         }
 
-        /* Glassmorphism Effect */
         .glass-card {
             background: var(--glass);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 15px;
+            border-radius: 20px;
             padding: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
@@ -40,20 +40,22 @@
         .nav-tabs {
             display: flex;
             background: rgba(0, 0, 0, 0.05);
-            border-radius: 12px;
+            border-radius: 15px;
             padding: 5px;
             margin-bottom: 20px;
+            gap: 5px;
         }
 
         .nav-tabs button {
             flex: 1;
-            padding: 10px;
+            padding: 12px;
             border: none;
             background: transparent;
             color: var(--tg-text);
-            border-radius: 10px;
+            border-radius: 12px;
             font-weight: bold;
             transition: all 0.3s;
+            cursor: pointer;
         }
 
         .nav-tabs button.active {
@@ -61,43 +63,46 @@
             color: var(--tg-btn-text);
         }
 
-        input, textarea {
+        textarea, input {
             width: 100%;
             padding: 15px;
             border-radius: 12px;
             border: 1px solid rgba(0, 0, 0, 0.1);
             background: rgba(255, 255, 255, 0.9);
             margin-bottom: 15px;
-            font-family: inherit;
             box-sizing: border-box;
+            font-family: monospace;
+            font-size: 13px;
         }
 
         .action-btn {
             width: 100%;
-            padding: 15px;
+            padding: 16px;
             background: var(--tg-btn);
             color: var(--tg-btn-text);
             border: none;
-            border-radius: 12px;
+            border-radius: 15px;
             font-size: 16px;
-            font-weight: 800;
+            font-weight: bold;
             box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
+            cursor: pointer;
         }
 
         .server-item {
             background: white;
             padding: 12px;
-            border-radius: 10px;
+            border-radius: 12px;
             margin-top: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            animation: fadeIn 0.5s ease;
+            animation: fadeIn 0.4s ease-out;
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        .ping-val { font-size: 11px; padding: 4px 8px; border-radius: 20px; background: #eee; }
+        .ping-badge { font-size: 10px; padding: 4px 8px; border-radius: 8px; background: #eee; font-weight: bold; }
         .low { background: #d4edda; color: #155724; }
         .high { background: #f8d7da; color: #721c24; }
     </style>
@@ -105,27 +110,29 @@
 <body>
 
     <div class="nav-tabs">
-        <button id="t1" class="active" onclick="tab(1)">استخراج</button>
+        <button id="t1" class="active" onclick="tab(1)">آنالیز لینک</button>
         <button id="t2" onclick="tab(2)">تبدیل به کلش</button>
     </div>
 
     <div id="p1" class="page">
         <div class="glass-card">
-            <input type="text" id="urlInput" placeholder="لینک سابسکریپشن را بچسبانید...">
-            <button class="action-btn" onclick="startProcess()">آنالیز و پینگ</button>
+            <input type="text" id="urlInput" placeholder="لینک سابسکریپشن HTTPS را وارد کنید...">
+            <button class="action-btn" onclick="startProcess()">استخراج و تست پینگ</button>
         </div>
         <div id="res"></div>
     </div>
 
     <div id="p2" class="page" style="display:none">
         <div class="glass-card">
-            <textarea id="v2Input" rows="8" placeholder="لینک‌های V2Ray (هر خط یکی)..."></textarea>
-            <button class="action-btn" onclick="buildClash()">تولید YAML کلش</button>
+            <p style="font-size: 12px; margin-top:0;">لینک‌های VLESS را در باکس زیر وارد کنید:</p>
+            <textarea id="v2Input" rows="10" placeholder="vless://..."></textarea>
+            <button class="action-btn" onclick="buildClash()">دانلود YAML مخصوص Clash</button>
         </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
+        tg.ready();
         tg.expand();
 
         function tab(n) {
@@ -138,16 +145,20 @@
         async function getPing(host) {
             const start = Date.now();
             try {
+                // ترفند اندازه گیری تاخیر اتصال
                 await fetch(`https://${host}`, { mode: 'no-cors', signal: AbortSignal.timeout(2500) });
                 return Date.now() - start;
-            } catch { return Math.floor(Math.random() * 200) + 150; } // شبیه‌سازی برای دامنه‌های فیلتر
+            } catch {
+                const diff = Date.now() - start;
+                return diff < 2500 ? diff : "Timeout";
+            }
         }
 
         async function startProcess() {
             const url = document.getElementById('urlInput').value;
             const resDiv = document.getElementById('res');
             if(!url) return;
-            resDiv.innerHTML = '<p style="text-align:center">در حال دریافت داده‌ها...</p>';
+            resDiv.innerHTML = '<p style="text-align:center">در حال دریافت محتوا...</p>';
 
             try {
                 const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
@@ -160,50 +171,88 @@
 
                 for (let c of configs) {
                     let name = c.includes('#') ? decodeURIComponent(c.split('#')[1]) : "Proxy Server";
-                    let host = c.split('@')[1]?.split(':')[0] || "google.com";
+                    let host = c.split('@')[1]?.split(':')[0]?.split('?')[0] || "1.1.1.1";
                     
                     const div = document.createElement('div');
                     div.className = 'server-item';
-                    div.innerHTML = `<span>${name} <small id="ms-${host}" class="ping-val">...</small></span> <button onclick="copy('${c}')" style="background:none; border:1px solid #ccc; border-radius:5px; padding:3px 8px">کپی</button>`;
+                    div.innerHTML = `<span>${name} <small id="ms-${host}" class="ping-badge">...</small></span> 
+                                    <button onclick="copy('${c}')" style="background:none; border:1px solid #0088cc; color:#0088cc; border-radius:8px; padding:5px 12px; cursor:pointer;">کپی</button>`;
                     resDiv.appendChild(div);
 
                     getPing(host).then(ms => {
                         const el = document.getElementById(`ms-${host}`);
                         if(el) {
-                            el.innerText = ms + 'ms';
-                            el.classList.add(ms < 400 ? 'low' : 'high');
+                            el.innerText = ms + (ms === "Timeout" ? "" : "ms");
+                            if(ms !== "Timeout") el.classList.add(ms < 500 ? 'low' : 'high');
                         }
                     });
                 }
-            } catch (e) { resDiv.innerHTML = "خطا در برقراری ارتباط!"; }
+            } catch (e) { resDiv.innerHTML = "<p style='color:red; text-align:center;'>خطا در دریافت لینک سابسکریپشن!</p>"; }
+        }
+
+        function parseVless(link) {
+            try {
+                const url = new URL(link);
+                const params = new URLSearchParams(url.search);
+                const name = decodeURIComponent(url.hash.slice(1)) || "Server_" + Math.floor(Math.random() * 1000);
+                
+                const proxy = {
+                    name: name,
+                    type: 'vless',
+                    server: url.hostname,
+                    port: parseInt(url.port),
+                    uuid: url.username,
+                    udp: true,
+                    tls: params.get('security') === 'tls',
+                    'skip-cert-verify': params.get('insecure') === '1' || params.get('allowInsecure') === '1',
+                    servername: params.get('sni') || params.get('host')?.split(',')[0] || "",
+                    network: params.get('type') || 'tcp'
+                };
+
+                if (proxy.network === 'ws') {
+                    proxy['ws-opts'] = { path: params.get('path') || '/', headers: { Host: params.get('host') || "" } };
+                }
+                if (proxy.network === 'httpupgrade') {
+                    proxy['http-upgrade-opts'] = { path: params.get('path') || '/', headers: { Host: params.get('host') || "" } };
+                }
+                if (proxy.network === 'tcp' && params.get('headerType') === 'http') {
+                    proxy['tcp-opts'] = { method: "GET", path: params.get('host') ? params.get('host').split(',') : ["/"] };
+                }
+                return proxy;
+            } catch (e) { return null; }
         }
 
         function buildClash() {
             const txt = document.getElementById('v2Input').value;
-            const lines = txt.split('\n').filter(l => l.includes('://'));
-            if(!lines.length) return tg.showAlert("ابتدا لینک‌ها را وارد کنید");
+            const lines = txt.split('\n').filter(l => l.trim().startsWith('vless://'));
+            
+            if (lines.length === 0) return tg.showAlert("هیچ لینک VLESS معتبری یافت نشد!");
 
-            const config = {
-                proxies: lines.map(l => {
-                    const name = l.includes('#') ? decodeURIComponent(l.split('#')[1]) : "S-"+Math.floor(Math.random()*100);
-                    return { name, type: 'vless', server: '1.1.1.1', port: 443, uuid: 'id', tls: true, udp: true };
-                }),
-                'proxy-groups': [{ name: 'Select-Proxy', type: 'select', proxies: [] }],
-                rules: ['MATCH,Select-Proxy']
+            const proxies = lines.map(parseVless).filter(p => p !== null);
+            const proxyNames = proxies.map(p => p.name);
+
+            const fullConfig = {
+                port: 7890, 'socks-port': 7891, 'allow-lan': true, mode: 'rule', 'log-level': 'info',
+                proxies: proxies,
+                'proxy-groups': [
+                    { name: '🚀 انتخاب سرور', type: 'select', proxies: ['DIRECT', ...proxyNames] },
+                    { name: '⚡ اتوماتیک (پینگ)', type: 'url-test', url: 'http://www.gstatic.com/generate_204', interval: 300, proxies: proxyNames }
+                ],
+                rules: ['MATCH,🚀 انتخاب سرور']
             };
-            config['proxy-groups'][0].proxies = config.proxies.map(p => p.name);
 
-            const blob = new Blob([jsyaml.dump(config)], {type: 'text/yaml'});
+            const yamlText = jsyaml.dump(fullConfig, { noRefs: true });
+            const blob = new Blob([yamlText], { type: 'text/yaml' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = 'clash_config.yaml';
+            a.download = 'Clash_Configs.yaml';
             a.click();
-            tg.showAlert("فایل YAML آماده دانلود شد!");
+            tg.showAlert("فایل YAML دانلود شد. آن را در کلش وارد کنید.");
         }
 
         function copy(t) {
             navigator.clipboard.writeText(t);
-            tg.showAlert("کپی شد!");
+            tg.showAlert("در کلیپ‌بورد ذخیره شد!");
         }
     </script>
 </body>
