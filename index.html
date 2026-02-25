@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مینی‌اپ من</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #222);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>سلام! 👋</h1>
+    <p>این اولین مینی‌اپ من روی گیت‌هاب است.</p>
+    <button id="main-btn">ارسال پیام به بات</button>
+
+    <script>
+        const tele = window.Telegram.WebApp;
+        tele.ready(); // به تلگرام می‌گوید که اپ آماده نمایش است
+
+        const btn = document.getElementById('main-btn');
+        btn.addEventListener('click', () => {
+            tele.showAlert("دکمه کلیک شد! مشخصات شما در تلگرام تایید شد.");
+        });
+    </script>
+</body>
+</html>
