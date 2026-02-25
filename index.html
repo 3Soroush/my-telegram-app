@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>V2Ray to Clash Pro</title>
+    <title>V2Ray & Wireguard Pro Tool</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
     <style>
@@ -35,6 +35,7 @@
             padding: 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
             margin-bottom: 20px;
+            position: relative;
         }
 
         .nav-tabs {
@@ -88,6 +89,23 @@
             cursor: pointer;
         }
 
+        .clear-btn {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            background: #ff4d4d22;
+            color: #d32f2f;
+            border: 1px solid #ff4d4d;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .clear-btn:hover { background: #ff4d4d; color: white; }
+
         .server-item {
             background: white;
             padding: 12px;
@@ -110,13 +128,15 @@
 <body>
 
     <div class="nav-tabs">
-        <button id="t1" class="active" onclick="tab(1)">آنالیز لینک</button>
+        <button id="t1" class="active" onclick="tab(1)">آنالیز ساب</button>
         <button id="t2" onclick="tab(2)">تبدیل به کلش</button>
     </div>
 
     <div id="p1" class="page">
         <div class="glass-card">
-            <input type="text" id="urlInput" placeholder="لینک سابسکریپشن HTTPS را وارد کنید...">
+            <button class="clear-btn" onclick="document.getElementById('urlInput').value=''">پاک کردن</button>
+            <p style="margin-top:0; font-size:13px">لینک سابسکریپشن:</p>
+            <input type="text" id="urlInput" placeholder="https://...">
             <button class="action-btn" onclick="startProcess()">استخراج و تست پینگ</button>
         </div>
         <div id="res"></div>
@@ -124,9 +144,10 @@
 
     <div id="p2" class="page" style="display:none">
         <div class="glass-card">
-            <p style="font-size: 12px; margin-top:0;">لینک‌های VLESS را در باکس زیر وارد کنید:</p>
-            <textarea id="v2Input" rows="10" placeholder="vless://..."></textarea>
-            <button class="action-btn" onclick="buildClash()">دانلود YAML مخصوص Clash</button>
+            <button class="clear-btn" onclick="document.getElementById('v2Input').value=''">پاک کردن</button>
+            <p style="margin-top:0; font-size:13px">لینک‌های VLESS یا Wireguard:</p>
+            <textarea id="v2Input" rows="10" placeholder="vless://...&#10;wireguard://..."></textarea>
+            <button class="action-btn" onclick="buildClash()">دانلود YAML کلش</button>
         </div>
     </div>
 
@@ -145,7 +166,6 @@
         async function getPing(host) {
             const start = Date.now();
             try {
-                // ترفند اندازه گیری تاخیر اتصال
                 await fetch(`https://${host}`, { mode: 'no-cors', signal: AbortSignal.timeout(2500) });
                 return Date.now() - start;
             } catch {
@@ -158,7 +178,7 @@
             const url = document.getElementById('urlInput').value;
             const resDiv = document.getElementById('res');
             if(!url) return;
-            resDiv.innerHTML = '<p style="text-align:center">در حال دریافت محتوا...</p>';
+            resDiv.innerHTML = '<p style="text-align:center">در حال دریافت داده‌ها...</p>';
 
             try {
                 const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
@@ -171,88 +191,90 @@
 
                 for (let c of configs) {
                     let name = c.includes('#') ? decodeURIComponent(c.split('#')[1]) : "Proxy Server";
-                    let host = c.split('@')[1]?.split(':')[0]?.split('?')[0] || "1.1.1.1";
+                    let host = c.startsWith('vmess://') ? "google.com" : (c.split('@')[1]?.split(':')[0]?.split('?')[0] || "1.1.1.1");
                     
                     const div = document.createElement('div');
                     div.className = 'server-item';
-                    div.innerHTML = `<span>${name} <small id="ms-${host}" class="ping-badge">...</small></span> 
+                    div.innerHTML = `<span>${name} <small id="ms-${host}-${Math.random()}" class="ping-badge">...</small></span> 
                                     <button onclick="copy('${c}')" style="background:none; border:1px solid #0088cc; color:#0088cc; border-radius:8px; padding:5px 12px; cursor:pointer;">کپی</button>`;
                     resDiv.appendChild(div);
 
                     getPing(host).then(ms => {
-                        const el = document.getElementById(`ms-${host}`);
+                        const el = div.querySelector('.ping-badge');
                         if(el) {
                             el.innerText = ms + (ms === "Timeout" ? "" : "ms");
                             if(ms !== "Timeout") el.classList.add(ms < 500 ? 'low' : 'high');
                         }
                     });
                 }
-            } catch (e) { resDiv.innerHTML = "<p style='color:red; text-align:center;'>خطا در دریافت لینک سابسکریپشن!</p>"; }
+            } catch (e) { resDiv.innerHTML = "<p style='text-align:center;'>خطا در بارگذاری!</p>"; }
         }
 
         function parseVless(link) {
             try {
                 const url = new URL(link);
                 const params = new URLSearchParams(url.search);
-                const name = decodeURIComponent(url.hash.slice(1)) || "Server_" + Math.floor(Math.random() * 1000);
-                
+                const name = decodeURIComponent(url.hash.slice(1)) || "VLESS_" + Math.floor(Math.random() * 100);
                 const proxy = {
-                    name: name,
-                    type: 'vless',
-                    server: url.hostname,
-                    port: parseInt(url.port),
-                    uuid: url.username,
-                    udp: true,
+                    name, type: 'vless', server: url.hostname, port: parseInt(url.port), uuid: url.username, udp: true,
                     tls: params.get('security') === 'tls',
                     'skip-cert-verify': params.get('insecure') === '1' || params.get('allowInsecure') === '1',
                     servername: params.get('sni') || params.get('host')?.split(',')[0] || "",
                     network: params.get('type') || 'tcp'
                 };
-
-                if (proxy.network === 'ws') {
-                    proxy['ws-opts'] = { path: params.get('path') || '/', headers: { Host: params.get('host') || "" } };
-                }
-                if (proxy.network === 'httpupgrade') {
-                    proxy['http-upgrade-opts'] = { path: params.get('path') || '/', headers: { Host: params.get('host') || "" } };
-                }
-                if (proxy.network === 'tcp' && params.get('headerType') === 'http') {
-                    proxy['tcp-opts'] = { method: "GET", path: params.get('host') ? params.get('host').split(',') : ["/"] };
-                }
+                if (proxy.network === 'ws') proxy['ws-opts'] = { path: params.get('path') || '/', headers: { Host: params.get('host') || "" } };
+                if (proxy.network === 'httpupgrade') proxy['http-upgrade-opts'] = { path: params.get('path') || '/', headers: { Host: params.get('host') || "" } };
+                if (proxy.network === 'tcp' && params.get('headerType') === 'http') proxy['tcp-opts'] = { method: "GET", path: params.get('host')?.split(',') || ["/"] };
                 return proxy;
-            } catch (e) { return null; }
+            } catch { return null; }
+        }
+
+        function parseWireguard(link) {
+            try {
+                const url = new URL(link);
+                const params = new URLSearchParams(url.search);
+                const name = decodeURIComponent(url.hash.slice(1)) || "WG_" + Math.floor(Math.random() * 100);
+                const reserved = params.get('reserved')?.split(',').map(n => parseInt(n));
+
+                return {
+                    name, type: 'wireguard', server: url.hostname === 'engage.cloudflareclient.com' ? '162.159.193.1' : url.hostname,
+                    port: parseInt(url.port), ip: params.get('address')?.split(',')[0] || '172.16.0.2',
+                    ipv6: params.get('address')?.split(',')[1] || undefined,
+                    'private-key': decodeURIComponent(url.username), 'public-key': params.get('publickey'),
+                    preSharedKey: params.get('presharedkey') || undefined, udp: true, mtu: 1280,
+                    reserved: (reserved && reserved.length === 3) ? reserved : undefined
+                };
+            } catch { return null; }
         }
 
         function buildClash() {
             const txt = document.getElementById('v2Input').value;
-            const lines = txt.split('\n').filter(l => l.trim().startsWith('vless://'));
-            
-            if (lines.length === 0) return tg.showAlert("هیچ لینک VLESS معتبری یافت نشد!");
+            const lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 15);
+            if (!lines.length) return tg.showAlert("ورودی خالی است!");
 
-            const proxies = lines.map(parseVless).filter(p => p !== null);
-            const proxyNames = proxies.map(p => p.name);
+            const proxies = lines.map(l => l.startsWith('vless://') ? parseVless(l) : (l.startsWith('wireguard://') ? parseWireguard(l) : null)).filter(p => p !== null);
 
-            const fullConfig = {
+            const config = {
                 port: 7890, 'socks-port': 7891, 'allow-lan': true, mode: 'rule', 'log-level': 'info',
                 proxies: proxies,
                 'proxy-groups': [
-                    { name: '🚀 انتخاب سرور', type: 'select', proxies: ['DIRECT', ...proxyNames] },
-                    { name: '⚡ اتوماتیک (پینگ)', type: 'url-test', url: 'http://www.gstatic.com/generate_204', interval: 300, proxies: proxyNames }
+                    { name: '🚀 انتخاب سرور', type: 'select', proxies: ['DIRECT', ...proxies.map(p => p.name)] },
+                    { name: '⚡ هوشمند', type: 'url-test', url: 'http://www.gstatic.com/generate_204', interval: 300, proxies: proxies.map(p => p.name) }
                 ],
                 rules: ['MATCH,🚀 انتخاب سرور']
             };
 
-            const yamlText = jsyaml.dump(fullConfig, { noRefs: true });
-            const blob = new Blob([yamlText], { type: 'text/yaml' });
+            const blob = new Blob([jsyaml.dump(config, {noRefs:true})], { type: 'text/yaml' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = 'Clash_Configs.yaml';
             a.click();
-            tg.showAlert("فایل YAML دانلود شد. آن را در کلش وارد کنید.");
+            tg.showAlert("فایل YAML با موفقیت ساخته شد!");
         }
 
         function copy(t) {
             navigator.clipboard.writeText(t);
-            tg.showAlert("در کلیپ‌بورد ذخیره شد!");
+            tg.showAlert("کپی شد!");
         }
     </script>
 </body>
